@@ -87,7 +87,8 @@ public class MLModelService {
                 instance.setDataset(trainingData);
                 
                 // Normalize the instance
-                Instance normalizedInstance = normalizeFilter.filterInstance(instance);
+                normalizeFilter.input(instance);
+                Instance normalizedInstance = normalizeFilter.output();
                 
                 // Make prediction
                 double predictedCpu = model.classifyInstance(normalizedInstance);

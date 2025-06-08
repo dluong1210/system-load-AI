@@ -180,3 +180,9 @@ monitoring/
 
 # PyTorch model
 pytorch_lstm_system_load_model.pth
+
+# logs
+logs/
+
+# data file
+data/

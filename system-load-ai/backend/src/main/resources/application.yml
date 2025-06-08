@@ -7,44 +7,67 @@ spring:
 
   # Database Configuration
   datasource:
-    url: jdbc:postgresql://localhost:5432/system_load_db
-    username: admin
-    password: admin123
+    url: jdbc:postgresql://localhost:5432/systemload
+    username: postgres
+    password: postgres
     driver-class-name: org.postgresql.Driver
 
   # JPA Configuration
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
 
   # Redis Configuration
   redis:
-    host: redis
+    host: localhost
     port: 6379
+    timeout: 2000ms
+
+# Mock server configuration
+mock:
+  server:
+    url: http://localhost:8000
+
+# Metrics collection configuration
+metrics:
+  collection:
+    enabled: true
+    interval: 1000 # 1 second = 1000ms (controlled by @Scheduled annotation)
 
 # Actuator Configuration
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus,metrics
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
-    prometheus:
-      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
 # Logging Configuration
 logging:
   level:
-    root: INFO
-    com.systemload: DEBUG
-    org.springframework.web: INFO
-    org.hibernate: INFO
+    com.systemload: INFO
+    com.systemload.service.MetricsCollectorService: WARN # Reduce logging for frequent scheduled tasks
+    org.springframework.web: WARN # Reduce web logging
+    org.hibernate.SQL: WARN
+    org.springframework.scheduling: WARN # Reduce scheduling logs
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/system-load-ai.log
+    max-size: 100MB # Increase max file size for frequent logging
+    max-history: 7 # Keep 7 days of logs
 
 # ML Model Configuration
 ml:

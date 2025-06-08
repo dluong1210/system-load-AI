@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   SettingOutlined,
   FileTextOutlined,
+  ApiOutlined,
 } from "@ant-design/icons";
 
 const { Sider } = Layout;
@@ -20,11 +21,11 @@ const Sidebar: React.FC = () => {
       icon: <DashboardOutlined />,
       label: <Link to="/">Dashboard</Link>,
     },
-    {
-      key: "/metrics",
-      icon: <LineChartOutlined />,
-      label: <Link to="/metrics">System Metrics</Link>,
-    },
+    // {
+    //   key: "/metrics",
+    //   icon: <LineChartOutlined />,
+    //   label: <Link to="/metrics">System Metrics</Link>,
+    // },
     {
       key: "/predictions",
       icon: <BarChartOutlined />,
@@ -39,6 +40,11 @@ const Sidebar: React.FC = () => {
       key: "/reports",
       icon: <FileTextOutlined />,
       label: <Link to="/reports">Reports</Link>,
+    },
+    {
+      key: "/connection-test",
+      icon: <ApiOutlined />,
+      label: <Link to="/connection-test">Connection Test</Link>,
     },
   ];
 

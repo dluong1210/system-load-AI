@@ -7,6 +7,7 @@ import SystemMetrics from "./pages/SystemMetrics";
 import Predictions from "./pages/Predictions";
 import ResourceOptimization from "./pages/ResourceOptimization";
 import Reports from "./pages/Reports";
+import SystemConnection from "./components/SystemConnection";
 
 const { Content } = Layout;
 
@@ -21,10 +22,11 @@ const App: React.FC = () => {
           >
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/metrics" element={<SystemMetrics />} />
+              {/* <Route path="/metrics" element={<SystemMetrics />} /> */}
               <Route path="/predictions" element={<Predictions />} />
               <Route path="/optimization" element={<ResourceOptimization />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/connection-test" element={<SystemConnection />} />
             </Routes>
           </Content>
         </Layout>

@@ -4,12 +4,12 @@ from sklearn.preprocessing import MinMaxScaler
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, Dataset
 import matplotlib.pyplot as plt
 import os
 
 # Define constants
-DATA_PATH = '../data/1.csv'
+DATA_PATH = '../../data/mock_data/1.csv'
 SEQUENCE_LENGTH = 60  # Number of time steps in each input sequence
 # TARGET_COLUMN = 'CPU usage [%]' # No longer a single target column
 SPLIT_RATIO = 0.8 # 80% for training, 20% for testing
@@ -21,6 +21,106 @@ PLOT_SAVE_DIR = '../../../' # Save plots in the root directory
 
 # Ensure plot save directory exists
 os.makedirs(PLOT_SAVE_DIR, exist_ok=True)
+
+def calculate_network_load_score(total_network_throughput):
+    """
+    Calculate network load score based on total network throughput
+    """
+    # Thresholds (KB/s)
+    lowThreshold = 128
+    mediumThreshold = 1280
+    highThreshold = 6400
+    maxThreshold = 12800
+
+    score = 0.0
+    if total_network_throughput <= lowThreshold:
+        score = (total_network_throughput / lowThreshold) * 25
+    elif total_network_throughput <= mediumThreshold:
+        score = 25 + ((total_network_throughput - lowThreshold) / (mediumThreshold - lowThreshold)) * 25
+    elif total_network_throughput <= highThreshold:
+        score = 50 + ((total_network_throughput - mediumThreshold) / (highThreshold - mediumThreshold)) * 25
+    elif total_network_throughput <= maxThreshold:
+        score = 75 + ((total_network_throughput - highThreshold) / (maxThreshold - highThreshold)) * 25
+    else:
+        score = 100
+    return min(max(score, 0), 100)
+
+def calculate_disk_load_score(total_disk_throughput):
+    """
+    Calculate disk load score based on total disk throughput
+    """
+    # Thresholds (KB/s)
+    lowThreshold = 1024
+    mediumThreshold = 10240
+    highThreshold = 51200
+    maxThreshold = 102400
+
+    score = 0.0
+    if total_disk_throughput <= lowThreshold:
+        score = (total_disk_throughput / lowThreshold) * 25
+    elif total_disk_throughput <= mediumThreshold:
+        score = 25 + ((total_disk_throughput - lowThreshold) / (mediumThreshold - lowThreshold)) * 25
+    elif total_disk_throughput <= highThreshold:
+        score = 50 + ((total_disk_throughput - mediumThreshold) / (highThreshold - mediumThreshold)) * 25
+    elif total_disk_throughput <= maxThreshold:
+        score = 75 + ((total_disk_throughput - highThreshold) / (maxThreshold - highThreshold)) * 25
+    else:
+        score = 100
+    return min(max(score, 0), 100)
+
+class MultistepDataset(Dataset):
+    """
+    Dataset class for multi-step time series prediction
+    """
+    def __init__(self, df, input_window=60, pred_steps=60):
+        # Calculate total throughput
+        df['Total Network Throughput [KB/s]'] = df['Network received throughput [KB/s]'] + df['Network transmitted throughput [KB/s]']
+        df['Total Disk Throughput [KB/s]'] = df['Disk read throughput [KB/s]'] + df['Disk write throughput [KB/s]']
+
+        # Calculate load scores
+        disk_throughput = df['Total Disk Throughput [KB/s]'].apply(calculate_disk_load_score)
+        network_throughput = df['Total Network Throughput [KB/s]'].apply(calculate_network_load_score)
+
+        # Calculate memory usage percentage
+        memory_usage = df['Memory usage [KB]'] / df['Memory capacity provisioned [KB]'] * 100
+        cpu_usage = df['CPU usage [%]']
+
+        # Convert to tensors
+        memory_usage = torch.tensor(memory_usage.values, dtype=torch.float32).unsqueeze(1)
+        cpu_usage = torch.tensor(cpu_usage.values, dtype=torch.float32).unsqueeze(1)
+        disk_throughput = torch.tensor(disk_throughput.values, dtype=torch.float32).unsqueeze(1)
+        network_throughput = torch.tensor(network_throughput.values, dtype=torch.float32).unsqueeze(1)
+        
+        self.data = torch.cat([cpu_usage, memory_usage, network_throughput, disk_throughput], dim=1)  # shape (N, 4)
+        
+        self.input_window = input_window
+        self.pred_steps = pred_steps
+
+    def __len__(self):
+        return len(self.data) - self.input_window - self.pred_steps + 1
+
+    def __getitem__(self, idx):
+        # Get input sequence and target sequence
+        x = self.data[idx : idx + self.input_window]   # (input_window, 4)
+        y = self.data[idx + self.input_window : idx + self.input_window + self.pred_steps]  # (pred_steps, 4)
+        return x, y
+
+class MultistepLSTM(nn.Module):
+    """
+    Multi-step LSTM model for system load prediction
+    """
+    def __init__(self, input_size=4, hidden_size=64, num_layers=2, pred_steps=60, output_size=4):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
+        self.fc = nn.Linear(hidden_size, pred_steps * output_size)
+        self.pred_steps = pred_steps
+        self.output_size = output_size
+
+    def forward(self, x):
+        out, _ = self.lstm(x)
+        out = out[:, -1, :]  # Take last output
+        out = self.fc(out)
+        return out.view(-1, self.pred_steps, self.output_size)
 
 def load_and_preprocess_data(file_path, sequence_length, split_ratio):
     """
@@ -105,6 +205,184 @@ class LSTMModel(nn.Module):
         lstm_out, _ = self.lstm(input_seq, (h0, c0))
         predictions = self.linear(lstm_out[:, -1, :])
         return predictions
+
+def train_epoch(model, dataloader, criterion, optimizer, device):
+    """
+    Train model for one epoch
+    """
+    model.train()
+    total_loss = 0
+    for x_batch, y_batch in dataloader:
+        x_batch = x_batch.to(device)
+        y_batch = y_batch.to(device)
+
+        optimizer.zero_grad()
+        output = model(x_batch)
+        loss = criterion(output, y_batch)
+        loss.backward()
+        optimizer.step()
+
+        total_loss += loss.item() * x_batch.size(0)
+
+    return total_loss / len(dataloader.dataset)
+
+def eval_epoch(model, dataloader, criterion, device):
+    """
+    Evaluate model for one epoch
+    """
+    model.eval()
+    total_loss = 0
+    with torch.no_grad():
+        for x_batch, y_batch in dataloader:
+            x_batch = x_batch.to(device)
+            y_batch = y_batch.to(device)
+
+            output = model(x_batch)
+            loss = criterion(output, y_batch)
+
+            total_loss += loss.item() * x_batch.size(0)
+
+    return total_loss / len(dataloader.dataset)
+
+def predict_future_metrics(model, input_data, device, pred_steps=60):
+    """
+    Predict future system metrics using trained model
+    
+    Args:
+        model: Trained MultistepLSTM model
+        input_data: Input sequence tensor of shape (1, input_window, 4) or (input_window, 4)
+        device: Device to run inference on
+        pred_steps: Number of future steps to predict
+        
+    Returns:
+        predictions: Tensor of shape (pred_steps, 4) containing predicted metrics
+    """
+    model.eval()
+    
+    if input_data.dim() == 2:
+        input_data = input_data.unsqueeze(0)  # Add batch dimension
+    
+    input_data = input_data.to(device)
+    
+    with torch.no_grad():
+        predictions = model(input_data)  # Shape: (1, pred_steps, 4)
+        predictions = predictions.squeeze(0)  # Remove batch dimension: (pred_steps, 4)
+    
+    return predictions
+
+def retrain_model_with_new_data(model_path, new_data_path, device, 
+                               input_window=60, pred_steps=60, 
+                               epochs=20, batch_size=32, learning_rate=0.001):
+    """
+    Retrain existing model with new data
+    
+    Args:
+        model_path: Path to existing model
+        new_data_path: Path to new CSV data
+        device: Device to train on
+        input_window: Input sequence length
+        pred_steps: Number of prediction steps
+        epochs: Number of training epochs
+        batch_size: Batch size for training
+        learning_rate: Learning rate for optimizer
+        
+    Returns:
+        model: Retrained model
+        train_losses: List of training losses
+        val_losses: List of validation losses
+    """
+    
+    # Load new data
+    try:
+        df = pd.read_csv(new_data_path, delimiter=';')
+        df.columns = [col.strip() for col in df.columns]
+        print(f"Loaded new data with shape: {df.shape}")
+    except Exception as e:
+        print(f"Error loading new data: {e}")
+        return None, None, None
+    
+    # Create dataset
+    dataset = MultistepDataset(df, input_window=input_window, pred_steps=pred_steps)
+    
+    # Split data
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    
+    # Create data loaders
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    
+    print(f"Train dataset size: {len(train_dataset)}")
+    print(f"Validation dataset size: {len(val_dataset)}")
+    
+    # Load existing model or create new one
+    if os.path.exists(model_path):
+        try:
+            model = MultistepLSTM(input_size=4, hidden_size=64, num_layers=2, 
+                                pred_steps=pred_steps, output_size=4)
+            model.load_state_dict(torch.load(model_path, map_location=device))
+            model = model.to(device)
+            print("Loaded existing model for retraining")
+        except Exception as e:
+            print(f"Error loading existing model: {e}")
+            print("Creating new model")
+            model = MultistepLSTM(input_size=4, hidden_size=64, num_layers=2, 
+                                pred_steps=pred_steps, output_size=4).to(device)
+    else:
+        print("Creating new model")
+        model = MultistepLSTM(input_size=4, hidden_size=64, num_layers=2, 
+                            pred_steps=pred_steps, output_size=4).to(device)
+    
+    # Setup training
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    
+    train_losses = []
+    val_losses = []
+    
+    print("Starting retraining...")
+    for epoch in range(1, epochs + 1):
+        train_loss = train_epoch(model, train_loader, criterion, optimizer, device)
+        val_loss = eval_epoch(model, val_loader, criterion, device)
+        
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        
+        if epoch % 5 == 0:
+            print(f"Epoch {epoch}/{epochs} - Train loss: {train_loss:.4f} - Val loss: {val_loss:.4f}")
+    
+    # Save retrained model
+    torch.save(model.state_dict(), model_path)
+    print(f"Retrained model saved to {model_path}")
+    
+    return model, train_losses, val_losses
+
+def load_model_for_prediction(model_path, device, input_size=4, hidden_size=64, 
+                            num_layers=2, pred_steps=60, output_size=4):
+    """
+    Load trained model for prediction
+    
+    Args:
+        model_path: Path to saved model
+        device: Device to load model on
+        Other args: Model architecture parameters
+        
+    Returns:
+        model: Loaded model ready for prediction
+    """
+    try:
+        model = MultistepLSTM(input_size=input_size, hidden_size=hidden_size, 
+                            num_layers=num_layers, pred_steps=pred_steps, 
+                            output_size=output_size)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        model = model.to(device)
+        model.eval()
+        print(f"Model loaded successfully from {model_path}")
+        return model
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        return None
 
 def train_pytorch_model(model, train_loader, val_loader, criterion, optimizer, epochs, device):
     train_losses = []

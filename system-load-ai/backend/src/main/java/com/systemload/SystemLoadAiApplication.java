@@ -10,4 +10,4 @@ public class SystemLoadAiApplication {
     public static void main(String[] args) {
         SpringApplication.run(SystemLoadAiApplication.class, args);
     }
-} 
+}

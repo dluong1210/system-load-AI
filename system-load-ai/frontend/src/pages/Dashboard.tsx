@@ -693,6 +693,7 @@ const Dashboard: React.FC = () => {
                         tick={{ fontSize: 11, fill: "#666" }}
                       />
                       <YAxis
+                        domain={[0, 100]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 11, fill: "#666" }}
@@ -745,6 +746,7 @@ const Dashboard: React.FC = () => {
                         tick={{ fontSize: 11, fill: "#666" }}
                       />
                       <YAxis
+                        domain={[0, 100]}
                         axisLine={false}
                         tickLine={false}
                         tick={{ fontSize: 11, fill: "#666" }}

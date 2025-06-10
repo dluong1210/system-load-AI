@@ -23,7 +23,7 @@ def load_csv_data():
     """Load CSV data once at startup"""
     global csv_data, csv_loaded
     
-    csv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "mock-metrics", "2.csv"))
+    csv_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "data", "mock-metrics", "2.csv"))
     
     try:
         csv_data = pd.read_csv(csv_path, sep=';')

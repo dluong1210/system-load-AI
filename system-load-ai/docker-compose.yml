@@ -1,72 +1,160 @@
-version: "3.8"
-
 services:
-  # Frontend
+  # Frontend (React + Nginx)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "3000:80"  # Map host port 3000 to container port 80 (Nginx)
     volumes:
       - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - systemload-network
+    restart: unless-stopped
 
-  # Backend
+  # Backend (Spring Boot)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - postgres
-      - redis
-      - prometheus
-
-  # Database
-  postgres:
-    image: postgres:latest
     environment:
-      POSTGRES_DB: system_load_db
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/systemload
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=admin123
+      # - SPRING_REDIS_HOST=redis
+      # - SPRING_REDIS_PORT=6379
+    volumes:
+      - backend_logs:/var/log
+    depends_on:
+      database:
+        condition: service_healthy
+      # redis:
+      #   condition: service_started
+    networks:
+      - systemload-network
+    restart: unless-stopped
+
+  # Database (PostgreSQL)
+  database:
+    image: postgres:14-alpine
+    container_name: systemload-postgres
+    environment:
+      POSTGRES_DB: systemload
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./database/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d systemload"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - systemload-network
+    restart: unless-stopped
+
+  # pgAdmin (Database Management UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: systemload-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@systemload.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+    networks:
+      - systemload-network
+
+  # Mock Server (Python FastAPI)
+  mock_server:
+    build:
+      context: ./mock-server
+      dockerfile: Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./mock-server:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - systemload-network
+    restart: unless-stopped
 
   # Redis Cache
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: systemload-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+  #   networks:
+  #     - systemload-network
+  #   restart: unless-stopped
 
-  # Monitoring
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus:/etc/prometheus
-      - prometheus_data:/prometheus
+  # Monitoring - Prometheus
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: systemload-prometheus
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/etc/prometheus/console_libraries'
+  #     - '--web.console.templates=/etc/prometheus/consoles'
+  #     - '--storage.tsdb.retention.time=200h'
+  #     - '--web.enable-lifecycle'
+  #   networks:
+  #     - systemload-network
+  #   restart: unless-stopped
 
-  grafana:
-    image: grafana/grafana
-    ports:
-      - "3001:3000"
-    volumes:
-      - ./monitoring/grafana:/var/lib/grafana
-    depends_on:
-      - prometheus
+  # # Monitoring - Grafana
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: systemload-grafana
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin123
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - prometheus
+  #   networks:
+  #     - systemload-network
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:
-  redis_data:
-  prometheus_data:
+  pgadmin_data:
+  backend_logs:
+  # redis_data:
+  # prometheus_data:
+  # grafana_data:
+
+networks:
+  systemload-network:
+    driver: bridge

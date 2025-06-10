@@ -7,9 +7,9 @@ spring:
 
   # Database Configuration
   datasource:
-    url: jdbc:postgresql://localhost:5432/systemload
-    username: postgres
-    password: postgres
+    url: jdbc:postgresql://database:5432/systemload
+    username: admin
+    password: admin123
     driver-class-name: org.postgresql.Driver
 
   # JPA Configuration
@@ -24,14 +24,14 @@ spring:
 
   # Redis Configuration
   redis:
-    host: localhost
+    host: redis
     port: 6379
     timeout: 2000ms
 
 # Mock server configuration
 mock:
   server:
-    url: http://localhost:8000
+    url: http://mock_server:8000
 
 # Metrics collection configuration
 metrics:
@@ -65,12 +65,12 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
-    name: logs/system-load-ai.log
-    max-size: 100MB # Increase max file size for frequent logging
-    max-history: 7 # Keep 7 days of logs
+    name: /var/log/system-load-ai.log
+    max-size: 100MB
+    max-history: 7
 
 # ML Model Configuration
 ml:
   prophet:
-    python_executable: python # Or full path to python.exe e.g., C:/Python39/python.exe
-    script_path: ../ml_models/scripts/prophet_model.py # Relative to backend project root
+    python_executable: python
+    script_path: /app/ml_models/scripts/prophet_model.py

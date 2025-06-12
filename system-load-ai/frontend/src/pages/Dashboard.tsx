@@ -534,6 +534,7 @@ const Dashboard: React.FC = () => {
                     tick={{ fontSize: 12, fill: "#666" }}
                   />
                   <YAxis
+                    domain={[0, 100]}
                     axisLine={false}
                     tickLine={false}
                     tick={{ fontSize: 12, fill: "#666" }}

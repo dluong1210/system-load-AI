@@ -4,9 +4,9 @@
 
 Backend Java Spring Boot này được thiết kế để:
 
-1. **Lấy metrics từ mock server** mỗi 30 giây
+1. **Lấy metrics từ mock server** mỗi giây
 2. **Lưu trữ metrics** vào PostgreSQL database
-3. **Phân tích và dự đoán** system load bằng AI (Weka ML)
+3. **Phân tích và dự đoán** system load bằng AI
 4. **Cung cấp REST APIs** cho frontend và monitoring
 
 ## Kiến trúc

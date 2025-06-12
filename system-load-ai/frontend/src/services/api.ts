@@ -76,6 +76,41 @@ export const getHealthCheck = () => {
   return apiClient.get("/system-load/health");
 };
 
+// --- AI Prediction API (matching PredictionController.java) --- //
+
+// Predict load for 1 hour ahead
+export const predict1Hour = (modelName: string) => {
+  return apiClient.get(`/predictions/1hour/${modelName}`);
+};
+
+// Predict load for 6 hours ahead
+export const predict6Hours = (modelName: string) => {
+  return apiClient.get(`/predictions/6hours/${modelName}`);
+};
+
+// Predict load for 24 hours ahead
+export const predict24Hours = (modelName: string) => {
+  return apiClient.get(`/predictions/24hours/${modelName}`);
+};
+
+// Train a prediction model
+export const trainPredictionModel = (metricName: string, modelName: string) => {
+  return apiClient.post("/predictions/train", {
+    metricName,
+    modelName,
+  });
+};
+
+// Get available prediction models
+export const getAvailablePredictionModels = () => {
+  return apiClient.get("/predictions/models");
+};
+
+// Health check for prediction service
+export const getPredictionHealthCheck = () => {
+  return apiClient.get("/predictions/health");
+};
+
 // --- Legacy API methods for backward compatibility --- //
 export const getSystemMetricsForTimeRange = (start: string, end: string) => {
   return apiClient.get("/metrics/range", { params: { start, end } });
@@ -202,6 +237,41 @@ export interface PredictionResult {
   predictedLoad: number | null;
   isAnomaly: boolean | null;
   recommendations: string[] | null;
+  predictionPeriod: string;
+  detailedPredictions: Array<{
+    timestamp: string;
+    predicted_value: number;
+    lower_bound: number;
+    upper_bound: number;
+  }> | null;
+}
+
+// Interface for Available Models Response
+export interface AvailableModelsResponse {
+  models: string[];
+  count: number;
+  serviceReady: boolean;
+}
+
+// Interface for Train Model Request
+export interface TrainModelRequest {
+  metricName: string;
+  modelName: string;
+}
+
+// Interface for Train Model Response
+export interface TrainModelResponse {
+  success: boolean;
+  message: string;
+  modelName: string;
+  metricName: string;
+}
+
+// Interface for Prediction Health Check
+export interface PredictionHealthStatus {
+  status: string;
+  isConnectionHealthy: boolean;
+  timestamp: number;
 }
 
 // Interface for System Statistics
@@ -221,7 +291,6 @@ export interface SystemStatistics {
 // Interface for Health Check - matching backend controller response
 export interface HealthStatus {
   isConnectionHealthy: boolean;
-  aiModels: boolean;
   timestamp: number;
 }
 

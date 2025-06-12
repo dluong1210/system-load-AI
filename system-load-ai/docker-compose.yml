@@ -5,7 +5,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"  # Map host port 3000 to container port 80 (Nginx)
+      - "3000:80" # Map host port 3000 to container port 80 (Nginx)
     volumes:
       - ./frontend:/app
     depends_on:
@@ -28,10 +28,14 @@ services:
       # - SPRING_REDIS_HOST=redis
       # - SPRING_REDIS_PORT=6379
     volumes:
-      - backend_logs:/var/log
+      - ./backend/src:/app/src
+      - ./backend/logs:/var/log
+      - ./data:/app/data
     depends_on:
       database:
         condition: service_healthy
+      ml_models:
+        condition: service_started
       # redis:
       #   condition: service_started
     networks:
@@ -90,6 +94,23 @@ services:
       - ./mock-server:/app
     ports:
       - "8000:8000"
+    networks:
+      - systemload-network
+    restart: unless-stopped
+
+  ml_models:
+    build:
+      context: ./ml_models
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8010"
+    volumes:
+      - ./data:/app/data
+      - ./ml_models/checkpoints:/app/checkpoints
+      - ./ml_models/scripts:/app/scripts
+      - ./ml_models/main.py:/app/main.py
+    environment:
+      - PYTHONUNBUFFERED=1
     networks:
       - systemload-network
     restart: unless-stopped

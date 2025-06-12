@@ -15,14 +15,14 @@ public class CorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(
-                    "http://localhost:3000",     // React dev server
-                    "http://127.0.0.1:3000",    // Alternative localhost
-                    "http://localhost:5173",    // Vite default port
-                    "http://127.0.0.1:5173"     // Alternative Vite
+                    "http://localhost:3000",
+                    "http://127.0.0.1:3000",
+                    "http://localhost:5173",
+                    "http://127.0.0.1:5173" 
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(false)
-                .maxAge(3600); // Cache preflight response for 1 hour
+                .maxAge(3600);
     }
 } 

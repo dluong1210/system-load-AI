@@ -1,21 +1,5 @@
-# Core ML Libraries
 prophet
-tensorflow
-keras
-xgboost
-scikit-learn
-torch
-
-# Data Handling
 pandas
 numpy
-
-# API (Optional - if building a Python API server)
-flask
 fastapi
 uvicorn
-
-# Other utilities
-joblib # For saving/loading models
-matplotlib # For plotting (optional, for notebooks/scripts)
-seaborn # For plotting (optional, for notebooks/scripts) 

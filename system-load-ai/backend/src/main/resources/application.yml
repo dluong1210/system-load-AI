@@ -23,15 +23,20 @@ spring:
         format_sql: true
 
   # Redis Configuration
-  redis:
-    host: redis
-    port: 6379
-    timeout: 2000ms
+  # redis:
+  #   host: redis
+  #   port: 6379
+  #   timeout: 2000ms
 
 # Mock server configuration
 mock:
   server:
     url: http://mock_server:8000
+
+# ML Model Configuration
+ml_models:
+  api:
+    url: http://ml_models:8010
 
 # Metrics collection configuration
 metrics:
@@ -68,9 +73,3 @@ logging:
     name: /var/log/system-load-ai.log
     max-size: 100MB
     max-history: 7
-
-# ML Model Configuration
-ml:
-  prophet:
-    python_executable: python
-    script_path: /app/ml_models/scripts/prophet_model.py

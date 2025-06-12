@@ -1,0 +1,1 @@
+{"model_name": "cpu_usage_percent_model_1h", "trained_at": "2025-06-12T01:12:26.222014", "data_points": 123, "metric_name": "cpu_usage_percent", "cap_value": 100.0, "floor_value": 0.0, "model_type": "1h", "hours_back": 3, "sample_interval_seconds": 60}

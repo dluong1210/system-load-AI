@@ -12,12 +12,17 @@ import {
   HealthStatus,
   PredictionApiResponse,
   TrainModelsResponse,
+  getPredictionHealthCheck,
 } from "../services/api";
 
 const SystemConnection: React.FC = () => {
   const [currentMetrics, setCurrentMetrics] =
     useState<SystemMetricsApiResponse | null>(null);
-  const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [healthTargetServer, setHealthTargetServer] =
+    useState<HealthStatus | null>(null);
+  const [healthMLService, setHealthMLService] = useState<HealthStatus | null>(
+    null
+  );
   const [prediction, setPrediction] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +37,14 @@ const SystemConnection: React.FC = () => {
     try {
       setLoading(true);
       const response = await getHealthCheck();
-      console.log(response.data);
-      setHealth(response.data);
+      setHealthTargetServer(response.data);
+      const responseMLService = await getPredictionHealthCheck();
+      setHealthMLService(responseMLService.data);
       setError(null);
     } catch (err: any) {
       setError(`Health check failed: ${err.message}`);
-      setHealth(null);
+      setHealthTargetServer(null);
+      setHealthMLService(null);
     } finally {
       setLoading(false);
     }
@@ -168,7 +175,7 @@ const SystemConnection: React.FC = () => {
               />
             )}
 
-            {health && (
+            {(healthTargetServer || healthMLService) && (
               <Row gutter={16} style={{ marginBottom: 16 }}>
                 {/* <Col span={8}>
                   <Statistic
@@ -181,16 +188,24 @@ const SystemConnection: React.FC = () => {
                   <Statistic
                     title="Mock Server"
                     value={
-                      health.isConnectionHealthy ? "Connected" : "Disconnected"
+                      healthTargetServer?.isConnectionHealthy
+                        ? "Connected"
+                        : "Disconnected"
                     }
-                    prefix={health.isConnectionHealthy ? "🟢" : "🔴"}
+                    prefix={
+                      healthTargetServer?.isConnectionHealthy ? "🟢" : "🔴"
+                    }
                   />
                 </Col>
                 <Col span={8}>
                   <Statistic
                     title="AI Models"
-                    value={health.aiModels ? "Ready" : "Not Ready"}
-                    prefix={health.aiModels ? "🤖" : "⏳"}
+                    value={
+                      healthMLService?.isConnectionHealthy
+                        ? "Ready"
+                        : "Not Ready"
+                    }
+                    prefix={healthMLService?.isConnectionHealthy ? "🤖" : "⏳"}
                   />
                 </Col>
               </Row>

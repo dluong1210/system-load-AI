@@ -51,8 +51,16 @@ const Sidebar: React.FC = () => {
   return (
     <Sider width={200} theme="light">
       <div
-        style={{ height: 32, margin: 16, background: "rgba(0, 0, 0, 0.2)" }}
-      />
+        style={{
+          height: 64,
+          margin: 16,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <img src="/viettel_logo.png" alt="App Logo" style={{ height: 32 }} />
+      </div>
       <Menu
         mode="inline"
         selectedKeys={[location.pathname]}

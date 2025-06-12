@@ -1,1 +1,0 @@
-{"model_name": "io_load_score_model_1h", "trained_at": "2025-06-12T00:50:48.753588", "data_points": 101, "metric_name": "io_load_score", "cap_value": 100.0, "floor_value": 0.0, "model_type": "1h", "hours_back": 3, "sample_interval_seconds": 60}

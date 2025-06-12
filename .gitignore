@@ -187,3 +187,4 @@ logs/
 # data file
 data/
 checkpoints/
+*.tex

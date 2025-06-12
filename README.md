@@ -410,9 +410,6 @@ docker-compose up -d database pgadmin
 - **Database**: PostgreSQL 14+, proper indexing
 - **Documentation**: Comprehensive README files
 
-## 📄 License
-
-[Add your license information here]
 
 ---
 

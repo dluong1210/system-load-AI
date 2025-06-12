@@ -172,3 +172,19 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+node_modules/
+dist/
+target/
+monitoring/
+
+# PyTorch model
+pytorch_lstm_system_load_model.pth
+
+# logs
+logs/
+
+# data file
+data/
+checkpoints/
+*.tex

@@ -336,29 +336,18 @@ const Predictions: React.FC = () => {
 
   const fetchPredictions = async () => {
     if (!selectedModel || availableModels.length === 0) {
-      console.log(
-        "No model selected or no models available, skipping predictions"
-      );
       setLoading(false);
       return;
     }
 
-    console.log("Fetching predictions with model:", selectedModel);
     setLoading(true);
     setError(null);
     try {
-      console.log("Making prediction API calls...");
       const [response1h, response6h, response24h] = await Promise.all([
         predict1Hour(selectedModel),
         predict6Hours(selectedModel),
         predict24Hours(selectedModel),
       ]);
-
-      console.log("Prediction responses:", {
-        response1h: response1h.data,
-        response6h: response6h.data,
-        response24h: response24h.data,
-      });
 
       setPredictions1h(response1h.data);
       setPredictions6h(response6h.data);
@@ -381,9 +370,6 @@ const Predictions: React.FC = () => {
             : "",
         ].filter(Boolean);
 
-        console.warn("Prediction errors:", errorMessages);
-
-        // Check if the error is due to no trained models
         const hasModelErrors = errorMessages.some(
           (msg) =>
             msg.includes("404") ||
@@ -402,8 +388,6 @@ const Predictions: React.FC = () => {
             `Some predictions failed: ${errorMessages.join(", ")}`
           );
         }
-      } else {
-        console.log("All predictions successful");
       }
     } catch (err) {
       console.error("Error fetching predictions:", err);
@@ -416,41 +400,27 @@ const Predictions: React.FC = () => {
 
   const fetchAvailableModels = async () => {
     try {
-      console.log("Fetching available models...");
       const response = await getAvailablePredictionModels();
       const data: AvailableModelsResponse = response.data;
-      console.log("Available models response:", data);
       setAvailableModels(data.models);
 
       if (data.models.length > 0) {
-        // Get available base models for the currently selected metric
         const baseModelsForCurrentMetric = getBaseModelsForMetric(
           data.models,
           selectedMetric
         );
 
         if (baseModelsForCurrentMetric.length > 0) {
-          // Find a complete model set (has _1h, _6h, _24h variants)
           const completeBaseModel = baseModelsForCurrentMetric.find(
             (baseModel) => hasCompleteModelSet(data.models, baseModel)
           );
 
           if (completeBaseModel) {
-            console.log(
-              `Setting complete base model for ${selectedMetric}:`,
-              completeBaseModel
-            );
             setSelectedModel(completeBaseModel);
           } else {
-            // If no complete set, use the first available base model
-            console.log(
-              `Setting partial base model for ${selectedMetric}:`,
-              baseModelsForCurrentMetric[0]
-            );
             setSelectedModel(baseModelsForCurrentMetric[0]);
           }
         } else {
-          // No models for current metric, find any complete base model
           const allBaseModels = Array.from(
             new Set(data.models.map((model) => extractBaseModelName(model)))
           );
@@ -460,24 +430,14 @@ const Predictions: React.FC = () => {
           );
 
           if (completeBaseModel) {
-            console.log(
-              "Setting first complete base model:",
-              completeBaseModel
-            );
             setSelectedModel(completeBaseModel);
           } else if (allBaseModels.length > 0) {
-            console.log(
-              "Setting first available base model:",
-              allBaseModels[0]
-            );
             setSelectedModel(allBaseModels[0]);
           } else {
-            console.log("No base models available - clearing selected model");
             setSelectedModel("");
           }
         }
       } else {
-        console.log("No models available - clearing selected model");
         setSelectedModel("");
       }
     } catch (err) {
@@ -489,9 +449,7 @@ const Predictions: React.FC = () => {
 
   const fetchHealthStatus = async () => {
     try {
-      console.log("Checking ML service health...");
       const response = await getPredictionHealthCheck();
-      console.log("Health status response:", response.data);
       setHealthStatus(response.data);
     } catch (err) {
       console.error("Failed to fetch health status:", err);
@@ -505,10 +463,8 @@ const Predictions: React.FC = () => {
       key: "trainModel",
     });
     try {
-      console.log("Starting model training...");
       const modelName = generateModelName(selectedMetric);
       const response = await trainPredictionModel(selectedMetric, modelName);
-      console.log("Training response:", response.data);
 
       if (response.data && response.data.success) {
         message.success({
@@ -517,7 +473,6 @@ const Predictions: React.FC = () => {
           key: "trainModel",
           duration: 5,
         });
-        // Refresh everything after training
         setTimeout(() => {
           fetchAvailableModels();
           fetchPredictions();
@@ -531,12 +486,10 @@ const Predictions: React.FC = () => {
           duration: 8,
         });
       }
-    } catch (err: any) {
-      console.error("Training error:", err);
+    } catch (err) {
+      console.error("Error training model:", err);
       message.error({
-        content: `Failed to train model: ${
-          err.response?.data?.message || err.message || "Unknown error"
-        }`,
+        content: "Failed to train model. Please try again later.",
         key: "trainModel",
         duration: 8,
       });
@@ -577,22 +530,13 @@ const Predictions: React.FC = () => {
       );
 
       if (baseModelsForSelectedMetric.length > 0) {
-        // Find a complete model set for the selected metric
         const completeBaseModel = baseModelsForSelectedMetric.find(
           (baseModel) => hasCompleteModelSet(availableModels, baseModel)
         );
 
         if (completeBaseModel && completeBaseModel !== selectedModel) {
-          console.log(
-            `Auto-selecting complete base model for ${selectedMetric}:`,
-            completeBaseModel
-          );
           setSelectedModel(completeBaseModel);
         } else if (baseModelsForSelectedMetric[0] !== selectedModel) {
-          console.log(
-            `Auto-selecting base model for ${selectedMetric}:`,
-            baseModelsForSelectedMetric[0]
-          );
           setSelectedModel(baseModelsForSelectedMetric[0]);
         }
       }

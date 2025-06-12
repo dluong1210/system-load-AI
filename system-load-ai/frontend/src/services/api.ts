@@ -34,7 +34,7 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error(`Error from ${error.config?.url}:`, error.message);
+    console.error(`API Error:`, error.message);
     return Promise.reject(error);
   }
 );

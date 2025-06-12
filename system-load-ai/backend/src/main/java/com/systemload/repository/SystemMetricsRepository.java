@@ -47,7 +47,7 @@ public interface SystemMetricsRepository extends JpaRepository<SystemMetrics, Lo
      * Find high load periods (load score > threshold)
      */
     @Query("SELECT sm FROM SystemMetrics sm WHERE sm.overallLoadScore > :threshold AND sm.collectedAt >= :sinceTime ORDER BY sm.collectedAt DESC")
-    List<SystemMetrics> findHighLoadPeriods(@Param("threshold") Double threshold, 
+    List<SystemMetrics> findHighLoadPeriods(@Param("threshold") double threshold, 
                                            @Param("sinceTime") LocalDateTime sinceTime);
     
     /**
@@ -55,6 +55,6 @@ public interface SystemMetricsRepository extends JpaRepository<SystemMetrics, Lo
      */
     @Modifying
     @Transactional
-    @Query("DELETE FROM SystemMetrics sm WHERE sm.collectedAt < :beforeTime")
-    int deleteOldMetrics(@Param("beforeTime") LocalDateTime beforeTime);
+    @Query("DELETE FROM SystemMetrics sm WHERE sm.collectedAt < :cutoffTime")
+    int deleteOldMetrics(@Param("cutoffTime") LocalDateTime cutoffTime);
 } 

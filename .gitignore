@@ -186,3 +186,4 @@ logs/
 
 # data file
 data/
+checkpoints/

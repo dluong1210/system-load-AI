@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Layout } from "antd";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./pages/Dashboard";
-import SystemMetrics from "./pages/SystemMetrics";
 import Predictions from "./pages/Predictions";
 import ResourceOptimization from "./pages/ResourceOptimization";
 import Reports from "./pages/Reports";
@@ -22,7 +21,6 @@ const App: React.FC = () => {
           >
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              {/* <Route path="/metrics" element={<SystemMetrics />} /> */}
               <Route path="/predictions" element={<Predictions />} />
               <Route path="/optimization" element={<ResourceOptimization />} />
               <Route path="/reports" element={<Reports />} />

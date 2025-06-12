@@ -5,106 +5,63 @@ import matplotlib.pyplot as plt
 def load_and_prepare_data(csv_filepath, value_column_name, cap_value=110, floor_value=0):
     try:
         df = pd.read_csv(csv_filepath, sep=';')
-    except FileNotFoundError:
-        print(f"Lỗi: Không tìm thấy file {csv_filepath}")
-        return None
-    except Exception as e:
-        print(f"Lỗi khi đọc file CSV: {e}")
+    except (FileNotFoundError, Exception):
         return None
 
     if 'Timestamp' not in df.columns or value_column_name not in df.columns:
-        print(f"Lỗi: File CSV phải chứa cột 'Timestamp' và '{value_column_name}'.")
-        print(f"Các cột hiện có: {df.columns.tolist()}")
         return None
 
     df_prophet = pd.DataFrame()
     df_prophet['ds'] = pd.to_datetime(df['Timestamp'])
     df_prophet['y'] = df[value_column_name].astype(float)
-
     df_prophet['cap'] = cap_value
     df_prophet['floor'] = floor_value
-    
     df_prophet['y'] = df_prophet['y'].clip(lower=floor_value, upper=cap_value)
 
-    print(f"Dữ liệu đã được tải và chuẩn bị. Số điểm dữ liệu: {len(df_prophet)}")
     return df_prophet
 
 def load_and_prepare_data_with_sampling(csv_filepath, value_column_name, hours_back, sample_interval_seconds, cap_value=110, floor_value=0):
-    """
-    Load and prepare data with specific time range and sampling interval
-    
-    Args:
-        csv_filepath: Path to CSV file
-        value_column_name: Column name to predict
-        hours_back: Number of hours to look back from the latest data point
-        sample_interval_seconds: Sampling interval in seconds
-        cap_value: Maximum value cap
-        floor_value: Minimum value floor
-    """
     try:
         df = pd.read_csv(csv_filepath, sep=';')
-    except FileNotFoundError:
-        print(f"Lỗi: Không tìm thấy file {csv_filepath}")
-        return None
-    except Exception as e:
-        print(f"Lỗi khi đọc file CSV: {e}")
+    except (FileNotFoundError, Exception):
         return None
 
     if 'Timestamp' not in df.columns or value_column_name not in df.columns:
-        print(f"Lỗi: File CSV phải chứa cột 'Timestamp' và '{value_column_name}'.")
-        print(f"Các cột hiện có: {df.columns.tolist()}")
         return None
 
-    # Convert timestamp to datetime
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df = df.sort_values('Timestamp')
     
-    # Get the latest timestamp and calculate the cutoff time
     latest_time = df['Timestamp'].max()
     cutoff_time = latest_time - pd.Timedelta(hours=hours_back)
-    
-    # Filter data to the specified time range
     df_filtered = df[df['Timestamp'] >= cutoff_time].copy()
     
     if len(df_filtered) == 0:
-        print(f"Không có dữ liệu trong khoảng thời gian {hours_back} giờ gần nhất")
         return None
     
-    # Set timestamp as index for resampling
     df_filtered = df_filtered.set_index('Timestamp')
-    
-    # Resample data according to the specified interval
     sample_rule = f"{sample_interval_seconds}S"
     df_resampled = df_filtered[value_column_name].resample(sample_rule).mean().dropna()
     
-    # Convert to Prophet format
     df_prophet = pd.DataFrame()
     df_prophet['ds'] = df_resampled.index
     df_prophet['y'] = df_resampled.values
-    
     df_prophet['cap'] = cap_value
     df_prophet['floor'] = floor_value
-    
     df_prophet['y'] = df_prophet['y'].clip(lower=floor_value, upper=cap_value)
     
-    print(f"Dữ liệu đã được tải và chuẩn bị với sampling {sample_interval_seconds}s trong {hours_back} giờ gần nhất. Số điểm dữ liệu: {len(df_prophet)}")
     return df_prophet
 
 def train_prophet_model(df_prophet):
     if df_prophet is None or len(df_prophet) < 2:
-        print("Không đủ dữ liệu để huấn luyện model.")
         return None
 
     model = Prophet(growth='logistic', daily_seasonality=True, weekly_seasonality=True, yearly_seasonality=False)
-    
-    # model.add_seasonality(name='hourly', period=1/24, fourier_order=3) # Nếu có seasonality theo giờ
 
     try:
         model.fit(df_prophet)
-        print("Model đã được huấn luyện thành công.")
         return model
-    except Exception as e:
-        print(f"Lỗi trong quá trình huấn luyện model: {e}")
+    except Exception:
         return None
 
 def make_predictions(model, future_periods_seconds, freq_seconds='S', cap_value=110, floor_value=0):
@@ -112,17 +69,13 @@ def make_predictions(model, future_periods_seconds, freq_seconds='S', cap_value=
         return None
 
     future_df = model.make_future_dataframe(periods=future_periods_seconds, freq=freq_seconds)
-
     future_df['cap'] = cap_value
     future_df['floor'] = floor_value
 
-    print(f"Đang thực hiện dự đoán cho {future_periods_seconds} giây tiếp theo ({future_periods_seconds/3600:.1f} giờ)...")
     try:
         forecast_df = model.predict(future_df)
-        print("Dự đoán hoàn tất.")
         return forecast_df
-    except Exception as e:
-        print(f"Lỗi trong quá trình dự đoán: {e}")
+    except Exception:
         return None
 
 def display_forecast_results(model, forecast_df, horizon_label, only_future=True):

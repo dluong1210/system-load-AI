@@ -40,7 +40,6 @@ public class AILoadPredictionService {
                 .build();
         
         checkMLServiceHealth();
-        log.info("AILoadPredictionService initialized with ML API URL: {}", mlApiUrl);
     }
     
     /**
@@ -56,9 +55,7 @@ public class AILoadPredictionService {
                     .block();
             
             serviceReady = response != null;
-            log.info("ML Service health check: {}", serviceReady ? "HEALTHY" : "UNHEALTHY");
         } catch (Exception e) {
-            log.warn("ML Service health check failed: {}", e.getMessage());
             serviceReady = false;
         }
     }
@@ -70,18 +67,13 @@ public class AILoadPredictionService {
         if (!serviceReady) {
             checkMLServiceHealth();
             if (!serviceReady) {
-                log.error("ML Service is not available");
                 return false;
             }
         }
         
-        log.info("Starting multi-model training for metric: {} with base model name: {}", metricName, modelName);
-        
         try {
-            // Export recent metrics to CSV for training
             String csvPath = exportMetricsToCSV(metricName);
             if (csvPath == null) {
-                log.error("Failed to export metrics to CSV");
                 return false;
             }
             
@@ -100,30 +92,10 @@ public class AILoadPredictionService {
                     .timeout(Duration.ofMinutes(10))
                     .block();
             
-            boolean success = response != null && response.success && response.totalModels > 0;
-            
-            if (success && response.modelsTrained != null) {
-                log.info("Multi-model training completed: SUCCESS");
-                log.info("Total models trained: {}", response.totalModels);
-                
-                for (ModelTrainingResult result : response.modelsTrained) {
-                    if (result.success) {
-                        log.info("✓ Model '{}' trained successfully with {} data points", 
-                                result.modelName, result.dataPoints);
-                    } else {
-                        log.warn("✗ Model '{}' training failed: {}", 
-                                result.modelName, result.message);
-                    }
-                }
-            } else {
-                log.error("Multi-model training failed: {}", 
-                        response != null ? response.message : "No response");
-            }
-            
-            return success;
+            return response != null && response.success && response.totalModels > 0;
             
         } catch (Exception e) {
-            log.error("Error training models: {}", e.getMessage(), e);
+            log.error("Error training models: {}", e.getMessage());
             return false;
         }
     }
@@ -168,9 +140,6 @@ public class AILoadPredictionService {
             request.capValue = 110.0;
             request.floorValue = 0.0;
             
-            log.info("Making prediction request: modelName={}, futurePeriods={}, freqSeconds={}", 
-                    request.modelName, request.futurePeriods, request.freqSeconds);
-            
             PredictionResponse response = webClient.post()
                     .uri("/predict")
                     .body(BodyInserters.fromValue(request))
@@ -179,23 +148,14 @@ public class AILoadPredictionService {
                     .timeout(Duration.ofMinutes(2))
                     .block();
             
-            log.info("Received prediction response: success={}, message={}, csvPath={}, finalValue={}", 
-                    response != null ? response.success : "null", 
-                    response != null ? response.message : "null",
-                    response != null ? response.predictionCsvPath : "null",
-                    response != null ? response.finalPredictedValue : "null");
-            
             if (response == null || !response.success) {
-                log.error("Prediction failed with response: {}", response);
                 return new PredictionResult(false, 
                         "Prediction failed: " + (response != null ? response.message : "No response"), 
                         null, null, null, periodDescription);
             }
             
-            // Read prediction results from CSV file
             List<Map<String, Object>> predictions = readPredictionCSV(response.predictionCsvPath);
             
-            // Get final predicted value from CSV data (more reliable than ML service response)
             Double finalPredictedValue = response.finalPredictedValue;
             if (predictions != null && !predictions.isEmpty()) {
                 Map<String, Object> lastPrediction = predictions.get(predictions.size() - 1);
@@ -205,18 +165,14 @@ public class AILoadPredictionService {
                 }
             }
             
-            // Analyze predictions for anomalies and recommendations
             boolean isAnomaly = detectAnomalies(predictions);
             List<String> recommendations = generateRecommendations(predictions, periodDescription);
-            
-            log.info("Prediction completed for {}: Final value={:.2f}, Anomaly={}, Recommendations={}", 
-                    periodDescription, finalPredictedValue, isAnomaly, recommendations.size());
             
             return new PredictionResult(true, "Success", finalPredictedValue, 
                     isAnomaly, recommendations, periodDescription, predictions);
             
         } catch (Exception e) {
-            log.error("Error making {} prediction: {}", periodDescription, e.getMessage(), e);
+            log.error("Error making {} prediction: {}", periodDescription, e.getMessage());
             return new PredictionResult(false, "Prediction failed: " + e.getMessage(), 
                     null, null, null, periodDescription);
         }
@@ -229,37 +185,22 @@ public class AILoadPredictionService {
         List<Map<String, Object>> predictions = new ArrayList<>();
         
         try {
-            log.info("Attempting to read prediction CSV from path: {}", csvPath);
-            
-            // Check if file exists
             if (!java.nio.file.Files.exists(java.nio.file.Paths.get(csvPath))) {
-                log.error("CSV file does not exist at path: {}", csvPath);
                 return predictions;
             }
             
-            // Check if file is readable
             if (!java.nio.file.Files.isReadable(java.nio.file.Paths.get(csvPath))) {
-                log.error("CSV file is not readable at path: {}", csvPath);
                 return predictions;
             }
             
             List<String> lines = java.nio.file.Files.readAllLines(java.nio.file.Paths.get(csvPath));
-            log.info("Successfully read {} lines from CSV file", lines.size());
             
             if (lines.size() <= 1) {
-                log.warn("No prediction data found in CSV: {} (only {} lines)", csvPath, lines.size());
                 return predictions;
             }
             
-            // Log the header line
-            if (lines.size() > 0) {
-                log.info("CSV header: {}", lines.get(0));
-            }
-            
-            // Skip header line
             for (int i = 1; i < lines.size(); i++) {
                 String line = lines.get(i);
-                log.debug("Processing CSV line {}: {}", i, line);
                 String[] parts = line.split(",");
                 
                 if (parts.length >= 4) {
@@ -271,17 +212,13 @@ public class AILoadPredictionService {
                         prediction.put("upper_bound", Double.parseDouble(parts[3]));
                         predictions.add(prediction);
                     } catch (NumberFormatException e) {
-                        log.warn("Failed to parse numeric values in line {}: {}", i, line);
+                        // Skip invalid lines
                     }
-                } else {
-                    log.warn("Insufficient columns in CSV line {}: {} (expected 4, got {})", i, line, parts.length);
                 }
             }
             
-            log.info("Successfully parsed {} predictions from CSV: {}", predictions.size(), csvPath);
-            
         } catch (Exception e) {
-            log.error("Error reading prediction CSV file {}: {}", csvPath, e.getMessage(), e);
+            log.error("Error reading prediction CSV file {}: {}", csvPath, e.getMessage());
         }
         
         return predictions;
@@ -294,14 +231,13 @@ public class AILoadPredictionService {
         try {
             List<SystemMetrics> metrics = metricsCollectorService.getRecentMetrics(24);
             if (metrics.size() < 10) {
-                log.warn("Insufficient data for training. Need at least 10 samples, got {}", metrics.size());
                 return null;
             }
             
             String csvPath = "/app/data/metrics_crawled/system_metrics_" + metricName + "_" + System.currentTimeMillis() + ".csv";
             
             StringBuilder csvContent = new StringBuilder();
-            csvContent.append("Timestamp;").append(metricName).append("\n"); // ML service expects Timestamp and metric_name columns
+            csvContent.append("Timestamp;").append(metricName).append("\n");
             
             java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
             
@@ -322,11 +258,10 @@ public class AILoadPredictionService {
                 csvContent.toString().getBytes()
             );
             
-            log.info("CSV exported to: {} with {} records", csvPath, metrics.size());
             return csvPath;
             
         } catch (Exception e) {
-            log.error("Error exporting metrics to CSV: {}", e.getMessage(), e);
+            log.error("Error exporting metrics to CSV: {}", e.getMessage());
             return null;
         }
     }
@@ -340,22 +275,18 @@ public class AILoadPredictionService {
                 return metric.getCpuUsagePercent();
             case "memory_usage_percent":
                 return metric.getMemoryUsagePercent();
+            case "disk_read_throughput_kbs":
+                return metric.getDiskReadThroughputKbs();
+            case "disk_write_throughput_kbs":
+                return metric.getDiskWriteThroughputKbs();
+            case "network_received_throughput_kbs":
+                return metric.getNetworkReceivedThroughputKbs();
+            case "network_transmitted_throughput_kbs":
+                return metric.getNetworkTransmittedThroughputKbs();
             case "overall_load_score":
                 return metric.getOverallLoadScore();
-            case "cpu_load_score":
-                return metric.getCpuLoadScore();
-            case "io_load_score":
-                return metric.getIoLoadScore();
-            case "disk_read_throughput":
-                return metric.getDiskReadThroughputKbs();
-            case "disk_write_throughput":
-                return metric.getDiskWriteThroughputKbs();
-            case "network_rx_throughput":
-                return metric.getNetworkReceivedThroughputKbs();
-            case "network_tx_throughput":
-                return metric.getNetworkTransmittedThroughputKbs();
             default:
-                return metric.getOverallLoadScore();
+                return null;
         }
     }
     
@@ -384,11 +315,9 @@ public class AILoadPredictionService {
         List<String> recommendations = new ArrayList<>();
         
         if (predictions == null || predictions.isEmpty()) {
-            recommendations.add("No prediction data available for analysis.");
             return recommendations;
         }
         
-        // Get final predicted value
         Map<String, Object> finalPrediction = predictions.get(predictions.size() - 1);
         Double finalValue = (Double) finalPrediction.get("predicted_value");
         
@@ -404,7 +333,6 @@ public class AILoadPredictionService {
             }
         }
         
-        // Check for trends
         if (predictions.size() > 1) {
             Double firstValue = (Double) predictions.get(0).get("predicted_value");
             if (firstValue != null && finalValue != null) {
@@ -447,7 +375,7 @@ public class AILoadPredictionService {
             }
             
         } catch (Exception e) {
-            log.error("Error fetching available models: {}", e.getMessage(), e);
+            log.error("Error fetching available models: {}", e.getMessage());
         }
         
         return new ArrayList<>();

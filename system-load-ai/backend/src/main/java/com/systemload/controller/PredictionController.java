@@ -26,17 +26,8 @@ public class PredictionController {
      */
     @GetMapping("/1hour/{baseModelName}")
     public ResponseEntity<AILoadPredictionService.PredictionResult> predict1Hour(@PathVariable String baseModelName) {
-        log.info("Received request for 1 hour prediction with base model: {}", baseModelName);
-        
         AILoadPredictionService.PredictionResult result = aiLoadPredictionService.predict1Hour(baseModelName);
-        
-        if (result.isSuccess()) {
-            log.info("1 hour prediction successful for base model: {}", baseModelName);
-            return ResponseEntity.ok(result);
-        } else {
-            log.warn("1 hour prediction failed for base model: {} - {}", baseModelName, result.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        return result.isSuccess() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
     /**
@@ -44,17 +35,8 @@ public class PredictionController {
      */
     @GetMapping("/6hours/{baseModelName}")
     public ResponseEntity<AILoadPredictionService.PredictionResult> predict6Hours(@PathVariable String baseModelName) {
-        log.info("Received request for 6 hours prediction with base model: {}", baseModelName);
-        
         AILoadPredictionService.PredictionResult result = aiLoadPredictionService.predict6Hours(baseModelName);
-        
-        if (result.isSuccess()) {
-            log.info("6 hours prediction successful for base model: {}", baseModelName);
-            return ResponseEntity.ok(result);
-        } else {
-            log.warn("6 hours prediction failed for base model: {} - {}", baseModelName, result.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        return result.isSuccess() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
     /**
@@ -62,17 +44,8 @@ public class PredictionController {
      */
     @GetMapping("/24hours/{baseModelName}")
     public ResponseEntity<AILoadPredictionService.PredictionResult> predict24Hours(@PathVariable String baseModelName) {
-        log.info("Received request for 24 hours prediction with base model: {}", baseModelName);
-        
         AILoadPredictionService.PredictionResult result = aiLoadPredictionService.predict24Hours(baseModelName);
-        
-        if (result.isSuccess()) {
-            log.info("24 hours prediction successful for base model: {}", baseModelName);
-            return ResponseEntity.ok(result);
-        } else {
-            log.warn("24 hours prediction failed for base model: {} - {}", baseModelName, result.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        return result.isSuccess() ? ResponseEntity.ok(result) : ResponseEntity.badRequest().body(result);
     }
 
     /**
@@ -80,8 +53,6 @@ public class PredictionController {
      */
     @PostMapping("/train")
     public ResponseEntity<Map<String, Object>> trainModel(@RequestBody TrainModelRequest request) {
-        log.info("Received training request for metric: {} with model: {}", request.getMetricName(), request.getModelName());
-        
         boolean success = aiLoadPredictionService.trainModel(request.getMetricName(), request.getModelName());
         
         return ResponseEntity.ok(Map.of(

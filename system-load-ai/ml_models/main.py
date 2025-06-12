@@ -11,7 +11,7 @@ import logging
 
 from scripts.prophet_model import load_and_prepare_data, load_and_prepare_data_with_sampling, train_prophet_model, make_predictions
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 CHECKPOINT_DIR = "checkpoints"
@@ -34,7 +34,6 @@ def save_model(model_name: str, model: Any, metadata: dict) -> Tuple[str, str]:
 def load_model(model_name: str, only_metadata: bool = False) -> Optional[Tuple[Any, dict]]:
     model_path = os.path.join(CHECKPOINT_DIR, f"{model_name}.json")
     
-    # Find metadata file with pattern: model_name_datapoints.meta.json
     metadata_path = None
     for file in os.listdir(CHECKPOINT_DIR):
         if file.startswith(f"{model_name}_") and file.endswith(".meta.json"):
@@ -75,7 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-trained_models: Dict[str, int] = {} # model_name: num_data_points
+trained_models: Dict[str, int] = {}
 
 class TrainingRequest(BaseModel):
     csv_filepath: str
@@ -172,7 +171,6 @@ async def train_model(request: TrainingRequest):
         }
         
         save_model(request.model_name, model, metadata)
-        
         trained_models[request.model_name] = len(df_prophet)
         
         return TrainingResponse(
@@ -189,17 +187,10 @@ async def train_model(request: TrainingRequest):
 
 @app.post("/train_multi_models", response_model=MultiModelTrainingResponse)
 async def train_multi_models(request: MultiModelTrainingRequest):
-    """
-    Train 3 different models for different prediction horizons:
-    - 1h prediction: 3 hours of data, 60s intervals
-    - 6h prediction: 18 hours of data, 360s intervals  
-    - 24h prediction: 72 hours of data, 1440s intervals
-    """
     try:
         if not os.path.exists(request.csv_filepath):
             raise HTTPException(status_code=404, detail=f"CSV file not found: {request.csv_filepath}")
         
-        # Model configurations for different prediction horizons
         model_configs = [
             {
                 "suffix": "_1h",
@@ -226,9 +217,6 @@ async def train_multi_models(request: MultiModelTrainingRequest):
         
         for config in model_configs:
             try:
-                print(f"\n--- Training {config['description']} ---")
-                
-                # Prepare data with specific sampling configuration
                 df_prophet = load_and_prepare_data_with_sampling(
                     request.csv_filepath,
                     request.metric_name,
@@ -247,7 +235,6 @@ async def train_multi_models(request: MultiModelTrainingRequest):
                     })
                     continue
                 
-                # Train model
                 model = train_prophet_model(df_prophet)
                 
                 if model is None:
@@ -259,7 +246,6 @@ async def train_multi_models(request: MultiModelTrainingRequest):
                     })
                     continue
                 
-                # Save model with specific metadata
                 model_name = request.base_model_name + config["suffix"]
                 metadata = {
                     "model_name": model_name,
@@ -268,7 +254,7 @@ async def train_multi_models(request: MultiModelTrainingRequest):
                     "metric_name": request.metric_name,
                     "cap_value": request.cap_value,
                     "floor_value": request.floor_value,
-                    "model_type": config["suffix"][1:],  # Remove underscore
+                    "model_type": config["suffix"][1:],
                     "hours_back": config["hours_back"],
                     "sample_interval_seconds": config["sample_interval"]
                 }
@@ -284,10 +270,7 @@ async def train_multi_models(request: MultiModelTrainingRequest):
                 })
                 total_success += 1
                 
-                print(f"✓ {config['description']} trained successfully with {len(df_prophet)} data points")
-                
             except Exception as e:
-                print(f"✗ Failed to train {config['description']}: {str(e)}")
                 models_trained.append({
                     "model_name": request.base_model_name + config["suffix"],
                     "success": False,
@@ -312,17 +295,11 @@ async def train_multi_models(request: MultiModelTrainingRequest):
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
     try:
-        print(f"DEBUG: Received prediction request: {request}")
-        print(f"DEBUG: Available models: {list(trained_models.keys())}")
-        
         if request.model_name not in trained_models:
             raise HTTPException(status_code=404, detail=f"Model '{request.model_name}' not found")
         
-        print(f"DEBUG: Loading model: {request.model_name}")
         model, metadata = load_model(request.model_name)
-        print(f"DEBUG: Model loaded successfully, metadata: {metadata}")
         
-        print(f"DEBUG: Calling make_predictions with periods={request.future_periods_seconds}, freq={request.freq_seconds}")
         forecast_df = make_predictions(
             model,
             request.future_periods_seconds,
@@ -332,14 +309,10 @@ async def predict(request: PredictionRequest):
         )
         
         if forecast_df is None:
-            print("DEBUG: make_predictions returned None")
             raise HTTPException(status_code=500, detail="Prediction failed")
-        
-        print(f"DEBUG: Prediction successful, forecast shape: {forecast_df.shape}")
         
         forecast_df['yhat'] = forecast_df['yhat'].clip(request.floor_value, request.cap_value)
         
-        # Save prediction results to CSV file
         import pandas as pd
         prediction_data = []
         for _, row in forecast_df.iterrows():
@@ -350,16 +323,13 @@ async def predict(request: PredictionRequest):
                 "upper_bound": float(row['yhat_upper'])
             })
         
-        # Create CSV filename based on model and timestamp
         from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         csv_filename = f"prediction_{request.model_name}_{timestamp}.csv"
         csv_path = f"/app/data/prediction/{csv_filename}"
         
-        # Save to CSV
         prediction_df = pd.DataFrame(prediction_data)
         prediction_df.to_csv(csv_path, index=False)
-        print(f"DEBUG: Prediction saved to: {csv_path}")
         
         final_prediction_time = forecast_df['ds'].iloc[-1].isoformat()
         final_predicted_value = float(forecast_df['yhat'].iloc[-1])

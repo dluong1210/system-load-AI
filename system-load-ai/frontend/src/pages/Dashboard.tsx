@@ -98,7 +98,6 @@ const Dashboard: React.FC = () => {
 
       if (response.data) {
         setCurrentMetrics(response.data);
-        console.log(response.data);
       } else {
         setCurrentMetrics(null);
       }
@@ -140,11 +139,9 @@ const Dashboard: React.FC = () => {
     interval: string = selectedInterval,
     forceUpdate: boolean = false
   ) => {
-    // Check if we should update based on interval
     if (!forceUpdate && historicalData.length > 0) {
       const lastDataPoint = historicalData[historicalData.length - 1];
       if (!shouldUpdateChart(lastDataPoint, interval)) {
-        console.log("Skipping chart update - interval not reached");
         return;
       }
     }
@@ -215,7 +212,6 @@ const Dashboard: React.FC = () => {
               timestamp = dayjs(m.collectedAt).format("HH:mm");
             }
 
-            // Map API response fields to expected format
             let memoryUsagePercent = Number(m.memoryUsagePercent) || 0;
             if (memoryUsagePercent === 0) {
               const usageKb = Number(m.usage_kb || 0);
@@ -229,27 +225,21 @@ const Dashboard: React.FC = () => {
               id: m.id,
               timestamp: timestamp,
               collectedAt: m.collectedAt,
-              // CPU Metrics
               cpuUsagePercent: Number(m.usage_percent) || 0,
               cpuUsageMhz: Number(m.usage_mhz) || 0,
               cpuCores: Number(m.cores) || 0,
               cpuCapacityMhz: Number(m.capacity_mhz) || 0,
-              // Memory Metrics
               memoryUsageKb: Number(m.usage_kb) || 0,
               memoryCapacityKb: Number(m.capacity_kb) || 0,
               memoryUsagePercent: memoryUsagePercent,
-              // Disk I/O Metrics
               diskReadThroughputKbs: Number(m.read_throughput_kbs) || 0,
               diskWriteThroughputKbs: Number(m.write_throughput_kbs) || 0,
-              // Network I/O Metrics
               networkReceivedThroughputKbs:
                 Number(m.received_throughput_kbs) || 0,
               networkTransmittedThroughputKbs:
                 Number(m.transmitted_throughput_kbs) || 0,
-              // Calculated Metrics
               cpuLoadScore: Number(m.cpuLoadScore) || 0,
               overallLoadScore: Number(m.overallLoadScore) || 0,
-              // ioLoadScore: Number(m.ioLoadScore) || 0,
               diskLoadScore: Number(m.diskLoadScore) || 0,
               networkLoadScore: Number(m.networkLoadScore) || 0,
             } as ChartDataPoint;
@@ -257,7 +247,6 @@ const Dashboard: React.FC = () => {
         );
 
         setHistoricalData(formattedData);
-        console.log("Chart data updated");
       } else {
         setHistoricalData([]);
       }
